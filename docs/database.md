@@ -144,6 +144,9 @@ go test ./internal/model/entity -count=1 -v
 | 验收点 | 测试 |
 | --- | --- |
 | 13 表字段/索引/外键与 migration 一致 | `TestGORMEntitySchemaMatchesMigration`（离线，不需数据库） |
+| 数据库恰好 13 张表、无额外中间表 | `TestDatabaseHasOnlyModelTables` |
+| DECIMAL 全部使用 decimal.Decimal | `TestDecimalFieldsUseDecimalType` |
+| 软删除只用于两张表 | `TestSoftDeleteOnlyOnDesignedTables` |
 | Model 增查 | `TestModelCreateAndQuery` |
 | User-Role 多对多 | `TestUserRoleManyToMany` |
 | Role-Menu 多对多 | `TestRoleMenuManyToMany` |

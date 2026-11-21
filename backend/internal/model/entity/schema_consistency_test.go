@@ -71,6 +71,25 @@ var allSchemaModels = []any{
 	&entity.AIMessage{},
 }
 
+// TestDatabaseHasOnlyModelTables 确认迁移 + GORM 注册后数据库里只有 13 张模型表，
+// 没有因为 many2many 配置错误而偷偷生成额外的中间表。
+func TestDatabaseHasOnlyModelTables(t *testing.T) {
+	db := openTestDB(t)
+
+	var tables []string
+	if err := db.Raw("SHOW TABLES").Scan(&tables).Error; err != nil {
+		t.Fatalf("读取表清单失败: %v", err)
+	}
+	sort.Strings(tables)
+	want := append([]string(nil), testTables...)
+	sort.Strings(want)
+	t.Logf("数据库表 (%d): %v", len(tables), tables)
+
+	if strings.Join(tables, ",") != strings.Join(want, ",") {
+		t.Fatalf("数据库表清单 = %v, want %v", tables, want)
+	}
+}
+
 // TestGORMEntitySchemaMatchesMigration 校验 13 个 Model 与迁移 SQL 完全一致。
 func TestGORMEntitySchemaMatchesMigration(t *testing.T) {
 	sqlTables, err := loadSQLSchema(filepath.Join("..", "..", "..", "migrations", "000001_init.up.sql"))

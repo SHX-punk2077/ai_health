@@ -77,8 +77,9 @@ cd frontend && npm install && npm run dev
 | `DATETIME(3)` / `DATE` | `time.Time` / `*time.Time`（UTC） |
 | `TEXT` / `MEDIUMTEXT` / `VARCHAR` | `string` / 可空指针 |
 
-- 软删除只用于 `sys_user`、`ai_conversation`；其余表不加 `deleted_at`。
-- RBAC 四组多对多（User↔Role、Role↔Menu）通过 `SetupJoinTables` 注册 `sys_user_role` / `sys_role_menu`。
+- 软删除只用于 `sys_user`、`ai_conversation`；其余表不加 `deleted_at`，并有契约测试兜底。
+- RBAC 四组多对多（User↔Role、Role↔Menu）通过 `SetupJoinTables` 注册 `sys_user_role` / `sys_role_menu`；
+  集成测试确认测试库恰好 13 张表，没有 GORM 额外生成的中间表。
 - 健康档案与历史记录分开：`HealthProfile` 一对一，`HealthRecord` 一对多；新增记录不自动覆盖档案。
 - 注册建用户 + 绑默认角色在同一事务；AI 消息用会话行锁分配 `sequence_no`。
 
