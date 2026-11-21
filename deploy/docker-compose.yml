@@ -70,8 +70,10 @@ services:
       AIH_MYSQL_DSN: "aihealth:${MYSQL_PASSWORD:-aihealth123}@tcp(mysql:3306)/ai_health?charset=utf8mb4&parseTime=True&loc=Local&multiStatements=true"
       AIH_REDIS_ADDR: "redis:6379"
       AIH_JWT_SECRET: "${JWT_SECRET:-please-change-me-to-a-32-bytes-secret}"
+      # 国内大模型优先：AI_PROVIDER=deepseek|qwen|glm|moonshot，空的 BASE_URL/MODEL 由服务端按 provider 预置
       AIH_AI_PROVIDER: "${AI_PROVIDER:-mock}"
-      AIH_AI_BASE_URL: "${AI_BASE_URL:-https://api.openai.com/v1}"
+      AIH_AI_BASE_URL: "${AI_BASE_URL:-}"
+      AIH_AI_MODEL: "${AI_MODEL:-}"
       AIH_AI_API_KEY: "${AI_API_KEY:-}"
     ports:
       - "${API_PORT:-8080}:8080"

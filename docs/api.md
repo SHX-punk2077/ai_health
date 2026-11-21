@@ -68,3 +68,23 @@
 | GET | /conversations/:id/messages | 消息分页 |
 | DELETE | /conversations/:id | 软删会话 |
 | POST | /chat | 提问，按用户限流 20 次/分钟 |
+`/chat` 的 `data` 结构：
+
+```json
+{
+  "conversationId": "1001",
+  "userMessageId": "5001",
+  "assistantMessageId": "5002",
+  "answer": "……",
+  "model": "deepseek-chat",
+  "tokens": 320
+}
+```
+
+`stream=true` 时改为 `text/event-stream`，逐条推送 `data: {"delta":"..."}`，以 `data: [DONE]` 结束。
+
+### AI 上游说明
+
+后端统一走 OpenAI 兼容协议，国内厂商优先：`deepseek`（默认推荐）/ `qwen`（通义千问）/ `glm`（智谱）
+/ `moonshot`（Kimi），`openai` 仅作备用，`mock` 用于离线开发。切换方式见 [ai.md](./ai.md)。
+上游失败对外只暴露 `60001 AI 服务暂不可用`，不转发厂商原始报文与密钥信息。

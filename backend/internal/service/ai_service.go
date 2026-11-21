@@ -6,7 +6,7 @@ import (
 	"ai_health/internal/repository"
 )
 
-// AIService AI 问答：上下文拼装、OpenAI 调用、消息落库。
+// AIService AI 问答：上下文拼装、大模型调用（OpenAI 兼容协议，国内厂商优先）、消息落库。
 //
 // TODO(实现清单)：
 //  1. Ask：拼 prompt（健康档案 + 近期记录 + 运动建议 + 疾病禁忌）→ aiclient.Chat

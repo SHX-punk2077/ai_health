@@ -2,7 +2,7 @@ package entity
 
 import "time"
 
-// 消息角色，与 OpenAI Chat Completions 的 role 对齐。
+// 消息角色，与 Chat Completions 协议的 role 对齐（DeepSeek / 通义千问 / GLM / Kimi 均兼容）。
 const (
 	RoleSystem    = "system"
 	RoleUser      = "user"

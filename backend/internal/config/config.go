@@ -49,6 +49,8 @@ type JWTConfig struct {
 	RefreshTTL time.Duration `mapstructure:"refresh_ttl"`
 }
 
+// AIConfig 大模型接入配置。国内服务商全部提供 OpenAI 兼容的 /chat/completions 协议，
+// 因此切换厂商只需要换 provider（决定 base_url 与 model 默认值）+ 填 api_key。
 type AIConfig struct {
 	Provider     string        `mapstructure:"provider"`
 	BaseURL      string        `mapstructure:"base_url"`
@@ -58,6 +60,45 @@ type AIConfig struct {
 	MaxTokens    int           `mapstructure:"max_tokens"`
 	Temperature  float32       `mapstructure:"temperature"`
 	HistoryLimit int           `mapstructure:"history_limit"`
+}
+
+type aiPreset struct {
+	BaseURL string
+	Model   string
+}
+
+// aiPresets 国内主流大模型的 OpenAI 兼容端点与默认模型（openai 仅作备用）。
+//
+//	deepseek  DeepSeek 开放平台   platform.deepseek.com
+//	qwen      阿里云百炼/通义千问  bailian.console.aliyun.com
+//	glm       智谱 BigModel       open.bigmodel.cn
+//	moonshot  月之暗面 Kimi       platform.moonshot.cn
+var aiPresets = map[string]aiPreset{
+	"deepseek": {BaseURL: "https://api.deepseek.com/v1", Model: "deepseek-chat"},
+	"qwen":     {BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", Model: "qwen-plus"},
+	"glm":      {BaseURL: "https://open.bigmodel.cn/api/paas/v4", Model: "glm-4-flash"},
+	"moonshot": {BaseURL: "https://api.moonshot.cn/v1", Model: "moonshot-v1-8k"},
+	"openai":   {BaseURL: "https://api.openai.com/v1", Model: "gpt-4o-mini"},
+	"mock":     {},
+}
+
+// ApplyDefaults 归一化 provider，并在 base_url / model 留空时按 provider 预置。
+func (a *AIConfig) ApplyDefaults() error {
+	a.Provider = strings.ToLower(strings.TrimSpace(a.Provider))
+	if a.Provider == "" {
+		a.Provider = "deepseek"
+	}
+	preset, ok := aiPresets[a.Provider]
+	if !ok {
+		return fmt.Errorf("config: 不支持的 ai.provider=%q（可选 deepseek/qwen/glm/moonshot/openai/mock）", a.Provider)
+	}
+	if a.BaseURL == "" {
+		a.BaseURL = preset.BaseURL
+	}
+	if a.Model == "" {
+		a.Model = preset.Model
+	}
+	return nil
 }
 
 type CORSConfig struct {
@@ -99,6 +140,7 @@ func Load(file string) (*Config, error) {
 	override("AIH_AI_API_KEY", &cfg.AI.APIKey)
 	override("AIH_AI_BASE_URL", &cfg.AI.BaseURL)
 	override("AIH_AI_PROVIDER", &cfg.AI.Provider)
+	override("AIH_AI_MODEL", &cfg.AI.Model)
 
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -114,8 +156,11 @@ func (c *Config) Validate() error {
 	if c.MySQL.DSN == "" {
 		return fmt.Errorf("config: mysql.dsn 不能为空")
 	}
-	if c.AI.Provider == "openai" && c.AI.APIKey == "" {
-		return fmt.Errorf("config: ai.api_key 不能为空（provider=openai）")
+	if err := c.AI.ApplyDefaults(); err != nil {
+		return err
+	}
+	if c.AI.Provider != "mock" && c.AI.APIKey == "" {
+		return fmt.Errorf("config: ai.api_key 不能为空（provider=%s，用 AIH_AI_API_KEY 注入）", c.AI.Provider)
 	}
 	if c.Server.Addr == "" {
 		c.Server.Addr = ":8080"

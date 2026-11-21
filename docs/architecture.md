@@ -28,6 +28,24 @@ router  →  handler  →  service  →  repository  →  MySQL
    出参统一用 `json:"id,string"`，前端类型定义为 `string`。
 5. **DECIMAL 用 shopspring/decimal**：浮点会丢精度，健康指标必须精确。
 6. **健康记录不软删**：`health_record` 无 `deleted_at`，删除即物理删除，符合数据留痕的最小实现。
+7. **大模型走 OpenAI 兼容协议 + provider 预置**：DeepSeek / 通义千问 / 智谱 GLM / Kimi 都提供
+   `/chat/completions` 兼容端点，所以客户端只实现一份协议，切换厂商仅改 `provider` + `api_key`；
+   `aiPresets` 在 `internal/config/config.go` 里预置 `base_url` / `model`，避免配置漂移。
+
+## AI 调用链
+
+```
+handler.Chat → service.AIService（拼上下文）→ pkg/aiclient（HTTP/SSE）→ 厂商接口
+                      ↓                        ↓
+              repository.AIRepo           Redis：ctx 摘要 / 防重锁 / 日调用配额
+                      ↓
+            ai_conversation + ai_message
+```
+
+- 上下文顺序：系统提示词 → 档案摘要 → 近 7 天指标 → 最近 `history_limit` 条对话 → 本次提问。
+- 落库：user 消息与 assistant 消息同一事务写入，`sequence_no` 会话内自增；上游失败则不写半截消息。
+- 限流：全局 300 req/min/IP，`/ai/chat` 另加 20 req/min/用户，避免刷爆上游额度。
+- 密钥只从 `AIH_AI_API_KEY` 注入，日志与响应均不回显。
 
 ## 中间件顺序
 

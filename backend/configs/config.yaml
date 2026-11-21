@@ -24,10 +24,16 @@ jwt:
   refresh_ttl: 168h
 
 ai:
-  provider: "mock"       # openai | mock
-  base_url: "https://api.openai.com/v1"
-  api_key: ""
-  model: "gpt-4o-mini"
+  # 国内大模型优先（均为 OpenAI 兼容的 /chat/completions 协议）：
+  #   deepseek → https://api.deepseek.com/v1                        deepseek-chat
+  #   qwen     → https://dashscope.aliyuncs.com/compatible-mode/v1  qwen-plus
+  #   glm      → https://open.bigmodel.cn/api/paas/v4               glm-4-flash
+  #   moonshot → https://api.moonshot.cn/v1                         moonshot-v1-8k
+  # 备用 openai；mock 为离线开发（不调外部接口，开箱可跑）
+  provider: "mock"
+  base_url: ""           # 留空按 provider 预置端点，一般无需手填
+  api_key: ""            # 用 AIH_AI_API_KEY 注入，切勿提交到仓库
+  model: ""              # 留空按 provider 预置模型
   timeout: 60s
   max_tokens: 1024
   temperature: 0.3
