@@ -1,0 +1,42 @@
+server:
+  addr: ":8080"
+  mode: "debug"          # debug | release
+  read_timeout: 15s
+  write_timeout: 120s    # SSE 需要长写超时
+  shutdown_timeout: 10s
+
+mysql:
+  dsn: "root:root@tcp(127.0.0.1:3306)/ai_health?charset=utf8mb4&parseTime=True&loc=Local&timeout=5s"
+  max_open: 25
+  max_idle: 10
+  slow_threshold: 200ms
+
+redis:
+  addr: "127.0.0.1:6379"
+  password: ""
+  db: 0
+  pool_size: 20
+
+jwt:
+  secret: ""             # 必填，>=32 字节，生产用 AIH_JWT_SECRET 注入
+  issuer: "ai-health"
+  access_ttl: 2h
+  refresh_ttl: 168h
+
+ai:
+  provider: "mock"       # openai | mock
+  base_url: "https://api.openai.com/v1"
+  api_key: ""
+  model: "gpt-4o-mini"
+  timeout: 60s
+  max_tokens: 1024
+  temperature: 0.3
+  history_limit: 10
+
+cors:
+  allow_origins:
+    - "http://localhost:5173"
+
+log:
+  level: "info"
+  format: "console"      # console | json

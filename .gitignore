@@ -1,0 +1,32 @@
+# Go
+bin/
+backend/bin/
+*.exe
+*.test
+*.out
+
+# config & secrets
+.env
+deploy/.env
+backend/configs/local.yaml
+backend/configs/*.local.yaml
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.vite/
+*.tsbuildinfo
+
+# OS / logs
+.DS_Store
+Thumbs.db
+*.log
+
+# npm 本地缓存目录
+.npm-cache/
