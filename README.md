@@ -3,7 +3,7 @@
 毕业设计项目：健康档案 / 健康记录 / 运动建议 / AI 健康问答。
 建表脚本来源 `ai_health_mysql8_init.sql`（已整理为 `backend/migrations` 下的版本迁移）。
 
-技术栈：Vue3 + TypeScript + Element Plus / Go + Gin / GORM / MySQL 8.0 / Redis /
+技术栈：Vue3 + TypeScript + Element Plus / **Go 1.27** + Gin / GORM / MySQL 8.0 / Redis /
 JWT + Redis 白名单 / **国内大模型（DeepSeek / 通义千问 / 智谱 GLM / Kimi，OpenAI 兼容协议）** /
 Swagger / golang-migrate / Docker Compose
 
@@ -24,6 +24,19 @@ ai_health/                 # 仓库根
 ├── Makefile               # 顶层快捷命令
 └── README.md
 ```
+
+## 环境要求
+
+| 组件 | 版本 | 说明 |
+| --- | --- | --- |
+| Go | **1.27.4**（≥1.27） | `backend/go.mod` 已声明 `go 1.27.4`，低于此版本无法编译 |
+| Node.js | 22.x（≥20） | 前端构建与 vite dev |
+| npm | 10+ | 或 pnpm，`package-lock.json` 用 npm 生成 |
+| Docker / Compose | 24+ / v2 | 起 MySQL、Redis、迁移容器与全栈编排 |
+| MySQL | 8.0 | 由 compose 提供，本地已有实例也可复用 |
+| Redis | 7 | 同上 |
+
+检查本机版本：`go version`、`node -v`、`docker compose version`。
 
 ## 快速开始
 
@@ -85,16 +98,16 @@ AI_API_KEY=sk-xxxxxxxxxxxxxxxx
 代码托管：<https://github.com/SHX-punk2077/ai_health>（分支 `main`）
 
 ```bash
-# 后端：编译 + 静态检查（依赖钉在 go 1.25，务必带 GOTOOLCHAIN=local）
+# 后端：编译 + 静态检查 + 单测（go.mod 要求 go 1.27.4）
 cd backend
-GOTOOLCHAIN=local go build ./... && GOTOOLCHAIN=local go vet ./...
+go build ./... && go vet ./... && go test ./...
 
 # 前端：类型检查 + 生产构建
 cd frontend
 npm install && npm run type-check && npm run build
 ```
 
-已完成验证：后端 build/vet 均通过且 gofmt 已格式化；前端 vue-tsc 类型检查与 vite build 均通过。
+已完成验证（Go 1.27.4）：后端 `go build` / `go vet` / `go test` 全部通过且 gofmt 已格式化；前端 vue-tsc 类型检查与 vite build 均通过。
 
 ## 约定
 

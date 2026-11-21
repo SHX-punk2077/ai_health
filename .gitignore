@@ -30,3 +30,7 @@ Thumbs.db
 
 # npm 本地缓存目录
 .npm-cache/
+
+# go 构建缓存（容器外的本地目录）
+.gocache/
+.gotmp/
