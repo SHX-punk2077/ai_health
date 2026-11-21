@@ -42,7 +42,8 @@ func TestAIApplyDefaults(t *testing.T) {
 	}
 }
 
-func TestValidateRequiresAPIKeyForRealProvider(t *testing.T) {
+// AI Key 不是启动硬性条件：AI 模块未启用时后端必须能正常起来。
+func TestValidateAllowsMissingAPIKey(t *testing.T) {
 	base := Config{
 		JWT:   JWTConfig{Secret: "0123456789abcdef0123456789abcdef"},
 		MySQL: MySQLConfig{DSN: "root:root@tcp(127.0.0.1:3306)/ai_health"},
@@ -56,8 +57,8 @@ func TestValidateRequiresAPIKeyForRealProvider(t *testing.T) {
 
 	real := base
 	real.AI = AIConfig{Provider: "deepseek"}
-	if err := real.Validate(); err == nil {
-		t.Fatal("provider=deepseek 缺 api_key 应报错")
+	if err := real.Validate(); err != nil {
+		t.Fatalf("缺 api_key 不应阻塞启动（只应告警）: %v", err)
 	}
 
 	withKey := base

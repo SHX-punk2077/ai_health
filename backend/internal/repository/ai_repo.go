@@ -43,6 +43,19 @@ func (r *AIRepo) ListConversations(ctx context.Context, uid uint64, offset, limi
 	return list, total, err
 }
 
+// CloseConversation 关闭 / 恢复会话，带 user_id 防越权。
+func (r *AIRepo) CloseConversation(ctx context.Context, uid, id uint64, status uint8) (int64, error) {
+	res := r.db.WithContext(ctx).Model(&entity.AIConversation{}).
+		Where("id = ? AND user_id = ?", id, uid).Update("status", status)
+	return res.RowsAffected, res.Error
+}
+
+// DeleteConversation 软删会话，消息由外键保留；列表查询自动过滤。
+func (r *AIRepo) DeleteConversation(ctx context.Context, uid, id uint64) (int64, error) {
+	res := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, uid).Delete(&entity.AIConversation{})
+	return res.RowsAffected, res.Error
+}
+
 // NextSequence 只用于只读预估，不可作为并发写入的序号来源；
 // 写入请使用 AppendMessage，由会话行锁串行化 MAX+1。
 func (r *AIRepo) NextSequence(ctx context.Context, cid uint64) (uint32, error) {
@@ -75,6 +88,26 @@ func (r *AIRepo) AppendMessage(ctx context.Context, m *entity.AIMessage) error {
 		m.SequenceNo = max + 1
 		return tx.Create(m).Error
 	})
+}
+
+// ListMessages 分页读取消息：先按 sequence_no 倒序取一页，再反转为正序返回。
+func (r *AIRepo) ListMessages(ctx context.Context, cid uint64, beforeSeq *uint32, offset, limit int) ([]entity.AIMessage, int64, error) {
+	q := r.db.WithContext(ctx).Model(&entity.AIMessage{}).Where("conversation_id = ?", cid)
+	if beforeSeq != nil && *beforeSeq > 0 {
+		q = q.Where("sequence_no < ?", *beforeSeq)
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var list []entity.AIMessage
+	if err := q.Order("sequence_no DESC").Offset(offset).Limit(limit).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+	for i, j := 0, len(list)-1; i < j; i, j = i+1, j-1 {
+		list[i], list[j] = list[j], list[i]
+	}
+	return list, total, nil
 }
 
 // RecentMessages 取最近 n 条作为上下文，再反转成时间正序。

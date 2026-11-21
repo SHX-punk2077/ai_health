@@ -16,7 +16,8 @@ import (
 )
 
 // New 构建 gin 引擎。中间件顺序：RequestID → Logger → Recovery → CORS。
-func New(cfg *config.Config, h *handler.Handlers, tokens *jwt.Manager, store *cache.Store) *gin.Engine {
+// ids 为 JWT 认证后加载角色 / 权限的解析器，由 bootstrap 注入 AuthService。
+func New(cfg *config.Config, h *handler.Handlers, tokens *jwt.Manager, store *cache.Store, ids middleware.IdentityResolver) *gin.Engine {
 	gin.SetMode(gin.DebugMode)
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -35,7 +36,7 @@ func New(cfg *config.Config, h *handler.Handlers, tokens *jwt.Manager, store *ca
 
 	// 全局限流：每 IP 每分钟 300 次
 	rl := middleware.RateLimit(store, "ip", 300, time.Minute)
-	auth := middleware.JWTAuth(tokens, store)
+	auth := middleware.JWTAuth(tokens, store, ids)
 
 	v1 := r.Group("/api/v1", rl)
 	{

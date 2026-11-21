@@ -107,3 +107,34 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 	}
 	response.OK(c, info)
 }
+
+// Me 当前登录用户（/auth/me，与 /auth/profile 同一实现，保留旧路径兼容）。
+// @Summary      获取当前登录用户信息
+// @Tags         auth
+// @Security     Bearer
+// @Success      200 {object} response.Body{data=response.UserInfo}
+// @Router       /auth/me [get]
+func (h *AuthHandler) Me(c *gin.Context) {
+	h.Profile(c)
+}
+
+// ChangePassword 修改密码，成功后该用户全部旧令牌立即失效，需要重新登录。
+// @Summary      修改当前用户密码
+// @Tags         auth
+// @Security     Bearer
+// @Accept       json
+// @Produce      json
+// @Param        body body request.PasswordReq true "旧密码与新密码"
+// @Success      200 {object} response.Body
+// @Router       /auth/password [put]
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	var req request.PasswordReq
+	if !bindJSON(c, &req) {
+		return
+	}
+	if err := h.svc.ChangePassword(c.Request.Context(), currentUID(c), &req); err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.OK(c, nil)
+}

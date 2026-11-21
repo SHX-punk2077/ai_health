@@ -41,14 +41,7 @@ func Page(c *gin.Context, list any, total int64, page, pageSize int) {
 func Fail(c *gin.Context, err error) {
 	var e *errcode.Error
 	if errors.As(err, &e) {
-		status := http.StatusOK
-		switch e.Code / 10000 {
-		case 2:
-			status = http.StatusUnauthorized
-		case 3:
-			status = http.StatusBadRequest
-		}
-		c.JSON(status, Body{Code: e.Code, Message: e.Msg, RequestID: c.GetString(ctxRequestID)})
+		c.JSON(httpStatus(e.Code), Body{Code: e.Code, Message: e.Msg, RequestID: c.GetString(ctxRequestID)})
 		return
 	}
 	c.JSON(http.StatusInternalServerError, Body{
@@ -56,6 +49,24 @@ func Fail(c *gin.Context, err error) {
 		Message:   errcode.ErrInternal.Msg,
 		RequestID: c.GetString(ctxRequestID),
 	})
+}
+
+// httpStatus 业务码 → HTTP 状态码。
+//
+// 默认 200：业务错误靠 body.code 判别，避免浏览器/网关把 4xx 当网络失败重试。
+// 例外是认证与权限：前端需要区分「没登录」(401)、「登录了没权限」(403)、「重试过多」(429)。
+func httpStatus(code int) int {
+	switch {
+	case code == errcode.ErrForbidden.Code:
+		return http.StatusForbidden
+	case code == errcode.ErrTooManyRetry.Code:
+		return http.StatusTooManyRequests
+	case code/10000 == 2:
+		return http.StatusUnauthorized
+	case code/10000 == 3:
+		return http.StatusBadRequest
+	}
+	return http.StatusOK
 }
 
 // Abort 中断请求（中间件使用），只写响应不再执行后续 handler。

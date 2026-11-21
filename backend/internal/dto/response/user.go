@@ -16,6 +16,15 @@ type UserItem struct {
 	Roles       []string   `json:"roles"`
 }
 
+// RoleItem 角色明细（不含关联用户），GET /users/roles 返回。
+type RoleItem struct {
+	ID          uint64 `json:"id,string"`
+	RoleCode    string `json:"roleCode"`
+	RoleName    string `json:"roleName"`
+	Description string `json:"description"`
+	Status      uint8  `json:"status"`
+}
+
 // MenuNode 前端路由树节点。
 type MenuNode struct {
 	ID         uint64      `json:"id,string"`

@@ -23,18 +23,21 @@ func New(cfg *config.Config, db *gorm.DB, store *cache.Store) *App {
 	tokens := jwtmgr.New(cfg.JWT.Secret, cfg.JWT.Issuer, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
 
 	userRepo := repository.NewUserRepo(db)
+	roleRepo := repository.NewRoleRepo(db)
+	menuRepo := repository.NewMenuRepo(db)
 	healthRepo := repository.NewHealthRepo(db)
 	sportRepo := repository.NewSportRepo(db)
 	aiRepo := repository.NewAIRepo(db)
 
-	authSvc := service.NewAuthService(userRepo, store, tokens)
+	authSvc := service.NewAuthService(userRepo, roleRepo, menuRepo, store, tokens)
+	userSvc := service.NewUserService(authSvc, userRepo, roleRepo)
 	healthSvc := service.NewHealthService(healthRepo, store)
 	sportSvc := service.NewSportService(sportRepo, store)
 	aiSvc := service.NewAIService(aiRepo, store, cfg)
 
 	h := handler.New(
 		handler.NewAuthHandler(authSvc),
-		handler.NewUserHandler(),
+		handler.NewUserHandler(userSvc),
 		handler.NewRoleHandler(),
 		handler.NewMenuHandler(),
 		handler.NewHealthHandler(healthSvc),
@@ -42,5 +45,5 @@ func New(cfg *config.Config, db *gorm.DB, store *cache.Store) *App {
 		handler.NewAIHandler(aiSvc),
 	)
 
-	return &App{Router: router.New(cfg, h, tokens, store)}
+	return &App{Router: router.New(cfg, h, tokens, store, authSvc)}
 }

@@ -159,9 +159,8 @@ func (c *Config) Validate() error {
 	if err := c.AI.ApplyDefaults(); err != nil {
 		return err
 	}
-	if c.AI.Provider != "mock" && c.AI.APIKey == "" {
-		return fmt.Errorf("config: ai.api_key 不能为空（provider=%s，用 AIH_AI_API_KEY 注入）", c.AI.Provider)
-	}
+	// ai.api_key 故意不做启动硬校验：AI 模块默认不启用，缺 Key 时只应在调用大模型时报错。
+	// 启动期由 main 打一条告警，避免本地/CI 因为没配第三方 Key 而完全起不来。
 	if c.Server.Addr == "" {
 		c.Server.Addr = ":8080"
 	}

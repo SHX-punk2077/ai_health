@@ -8,6 +8,13 @@ import (
 	"ai_health/internal/model/entity"
 )
 
+// DiseaseFilter 疾病注意事项查询条件。
+type DiseaseFilter struct {
+	Name      string
+	TypeID    *uint64
+	RiskLevel *uint8
+}
+
 // SportRepo 运动类型、运动建议、疾病禁忌。
 type SportRepo struct {
 	db *gorm.DB
@@ -49,13 +56,35 @@ func (r *SportRepo) ListInfos(ctx context.Context, typeID *uint64, offset, limit
 	return list, total, err
 }
 
-// ListDiseases 按疾病名匹配禁忌，risk_level 高的优先展示。
-func (r *SportRepo) ListDiseases(ctx context.Context, disease string, limit int) ([]entity.SportDiseaseDetail, error) {
+// GetInfo 运动建议详情，未找到返回 (nil, nil)。
+func (r *SportRepo) GetInfo(ctx context.Context, id uint64) (*entity.SportInfo, error) {
+	var info entity.SportInfo
+	err := r.db.WithContext(ctx).Preload("SportType").Where("id = ?", id).Limit(1).Find(&info).Error
+	if err != nil || info.ID == 0 {
+		return nil, err
+	}
+	return &info, nil
+}
+
+// ListDiseases 按疾病名 / 运动类型 / 风险等级筛选，risk_level 高的优先展示。
+func (r *SportRepo) ListDiseases(ctx context.Context, f DiseaseFilter, offset, limit int) ([]entity.SportDiseaseDetail, int64, error) {
 	q := r.db.WithContext(ctx).Model(&entity.SportDiseaseDetail{})
-	if disease != "" {
-		q = q.Where("disease_name LIKE ?", "%"+disease+"%")
+	if f.Name != "" {
+		q = q.Where("disease_name LIKE ?", "%"+f.Name+"%")
+	}
+	if f.TypeID != nil {
+		q = q.Where("sport_type_id = ?", *f.TypeID)
+	}
+	if f.RiskLevel != nil {
+		q = q.Where("risk_level = ?", *f.RiskLevel)
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
 	var list []entity.SportDiseaseDetail
-	err := q.Order("risk_level DESC").Limit(limit).Find(&list).Error
-	return list, err
+	err := q.Preload("SportType").
+		Order("risk_level DESC, id ASC").
+		Offset(offset).Limit(limit).Find(&list).Error
+	return list, total, err
 }

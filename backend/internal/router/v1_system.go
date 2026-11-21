@@ -8,9 +8,16 @@ import (
 )
 
 // registerSystem 系统管理：用户 / 角色 / 菜单。
+//
+// 注意注册顺序：/users/profile 与 /users/roles 是静态段，与 /users/:id 同级共存，
+// gin 1.10 的树支持静态段优先匹配，已用 router 测试固定该行为。
 func registerSystem(v1 *gin.RouterGroup, h *handler.Handlers, auth gin.HandlerFunc) {
 	users := v1.Group(prefixUser, auth)
 	{
+		users.GET("/profile", h.User.Profile)
+		users.PUT("/profile", h.User.UpdateProfile)
+		users.GET("/roles", h.User.MyRoles)
+
 		users.GET("", h.User.List)
 		users.GET("/:id", h.User.Detail)
 		users.POST("", middleware.RequirePerm("user:create"), h.User.Create)

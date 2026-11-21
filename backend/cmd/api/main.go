@@ -38,6 +38,10 @@ func main() {
 	}
 	defer func() { _ = lg.Sync() }()
 
+	if cfg.AI.Provider != "mock" && cfg.AI.APIKey == "" {
+		lg.Warn("ai.api_key 未配置（provider=" + cfg.AI.Provider + "），AI 会话问答将不可用，其余业务不受影响")
+	}
+
 	db, err := bootstrap.NewDB(cfg)
 	if err != nil {
 		lg.Fatal("connect mysql failed: " + err.Error())

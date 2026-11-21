@@ -68,14 +68,20 @@ RBAC 关联表：
 
 ## 4. 验证方式
 
+本地依赖：MySQL 8 root @127.0.0.1:3306（密码只写在本机 backend/.tmp/local-credentials.md，该目录已被 .gitignore 忽略）；Redis 无密码 @127.0.0.1:6379。
+开发库 ai_health、独立测试库 ai_health_test 均已按 migrations 建好 13 张表。
+
 ```powershell
 cd D:\GoLand_workspace\Projects\ai_health\backend
+$G='C:\Users\32951\go-toolchain\go'; $env:GOROOT=$G; $env:PATH="$G\bin;"+$env:PATH
 $env:AIH_TEST_MYSQL_DSN='root:<password>@tcp(127.0.0.1:3306)/ai_health_test?charset=utf8mb4&parseTime=True&loc=UTC&timeout=5s'
 gofmt -l ./internal ./cmd
 go build ./...
 go vet ./...
-go test ./... -count=1
+go test ./... -count=1 -p 1
 ```
+
+注意：测试包之间会共用 ai_health_test，必须 `-p 1` 串行执行，否则 entity 测试重建表会打断其它包的用例。
 
 - 测试库必须独立为 ai_health_test；测试会按 migration 重建 13 张表。
 - 离线 schema 测试不需要数据库：TestGORMEntitySchemaMatchesMigration。
@@ -91,7 +97,8 @@ go test ./... -count=1
 - RBAC 必须用 SetupJoinTable 指向 sys_user_role / sys_role_menu；不要依赖 GORM 默认命名。
 - health_record 没有 profile_id，按 user_id 与 health_profile 关联；HealthProfile.Records 用
   foreignKey:UserID;references:UserID;constraint:-，避免生成错误外键。
-- 不要把真实数据库密码写入代码、配置或文档；本地用 AIH_MYSQL_DSN 注入。
+- 本地开发库凭据只记录在 gitignore 内的 backend/.tmp/local-credentials.md；MEMORY.md / docs / configs 一律用
+  `<password>` 占位，真实值通过 AIH_MYSQL_DSN 注入，禁止进入任何会提交到远端的文件。
 - 本机 Go 工具链若出现 Temp 写入失败，检查工具链目录的完整性级别；当前用 Medium IL 的
   Go 1.27.4 工具链构建，D:\go 原目录保留未动。
 - 已确认 AutoMigrate 实际调用为 0，只有注释；生产 schema 只由 migration 演进。

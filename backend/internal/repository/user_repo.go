@@ -8,11 +8,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"ai_health/internal/consts"
 	"ai_health/internal/model/entity"
 )
 
-// UserRepo 用户、角色、权限的数据访问。
+// UserRepo 用户表数据访问。角色与权限查询分别在 RoleRepo、MenuRepo。
 type UserRepo struct {
 	db *gorm.DB
 }
@@ -20,6 +19,13 @@ type UserRepo struct {
 func NewUserRepo(db *gorm.DB) *UserRepo { return &UserRepo{db: db} }
 
 func (r *UserRepo) DB() *gorm.DB { return r.db }
+
+// UserFilter 用户列表筛选条件，nil 字段表示不限制。
+type UserFilter struct {
+	Keyword string
+	Status  *uint8
+	RoleID  *uint64
+}
 
 // GetByAccount 支持用户名 / 邮箱 / 手机号登录；未找到返回 (nil, nil)。
 func (r *UserRepo) GetByAccount(ctx context.Context, account string) (*entity.SysUser, error) {
@@ -70,12 +76,30 @@ func (r *UserRepo) CreateWithRole(ctx context.Context, u *entity.SysUser, roleCo
 
 // Exists 检查唯一字段是否已被占用（NULL 值不参与唯一索引，故需排除空串）。
 func (r *UserRepo) Exists(ctx context.Context, column, value string) (bool, error) {
+	return r.ExistsExcept(ctx, column, value, 0)
+}
+
+// ExistsExcept 同 Exists，但忽略指定用户，供「修改资料时保留原邮箱/手机号」使用。
+func (r *UserRepo) ExistsExcept(ctx context.Context, column, value string, excludeID uint64) (bool, error) {
 	if value == "" {
 		return false, nil
 	}
+	q := r.db.WithContext(ctx).Model(&entity.SysUser{}).Where(column+" = ?", value)
+	if excludeID > 0 {
+		q = q.Where("id <> ?", excludeID)
+	}
 	var n int64
-	err := r.db.WithContext(ctx).Model(&entity.SysUser{}).Where(column+" = ?", value).Count(&n).Error
+	err := q.Count(&n).Error
 	return n > 0, err
+}
+
+// UpdateFields 按列更新用户；列名白名单由 service 保证。
+func (r *UserRepo) UpdateFields(ctx context.Context, id uint64, updates map[string]any) (int64, error) {
+	if len(updates) == 0 {
+		return 0, nil
+	}
+	res := r.db.WithContext(ctx).Model(&entity.SysUser{}).Where("id = ?", id).Updates(updates)
+	return res.RowsAffected, res.Error
 }
 
 func (r *UserRepo) UpdateLastLogin(ctx context.Context, id uint64, t time.Time) error {
@@ -83,54 +107,53 @@ func (r *UserRepo) UpdateLastLogin(ctx context.Context, id uint64, t time.Time) 
 		Where("id = ?", id).Update("last_login_at", t).Error
 }
 
-// ListRoleCodes 取用户角色编码，Redis 命中时由 service 层短路。
-func (r *UserRepo) ListRoleCodes(ctx context.Context, uid uint64) ([]string, error) {
-	var codes []string
-	err := r.db.WithContext(ctx).
-		Table("sys_role AS r").
-		Select("r.role_code").
-		Joins("JOIN sys_user_role AS ur ON ur.role_id = r.id").
-		Where("ur.user_id = ? AND r.status = 1", uid).
-		Pluck("r.role_code", &codes).Error
-	return codes, err
+// List 分页查询，支持关键字 / 状态 / 角色筛选。
+func (r *UserRepo) List(ctx context.Context, f UserFilter, offset, limit int) ([]entity.SysUser, int64, error) {
+	q := r.db.WithContext(ctx).Model(&entity.SysUser{})
+	if f.Keyword != "" {
+		like := "%" + f.Keyword + "%"
+		q = q.Where("username LIKE ? OR nickname LIKE ? OR email LIKE ? OR phone LIKE ?", like, like, like, like)
+	}
+	if f.Status != nil {
+		q = q.Where("status = ?", *f.Status)
+	}
+	if f.RoleID != nil {
+		q = q.Where("id IN (?)", r.db.Model(&entity.SysUserRole{}).Select("user_id").Where("role_id = ?", *f.RoleID))
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var list []entity.SysUser
+	err := q.Order("id DESC").Offset(offset).Limit(limit).Find(&list).Error
+	return list, total, err
 }
 
-// ListPermissions 角色菜单并集；super_admin 直接返回通配符。
-func (r *UserRepo) ListPermissions(ctx context.Context, uid uint64) ([]string, error) {
-	codes, err := r.ListRoleCodes(ctx, uid)
-	if err != nil {
-		return nil, err
-	}
-	for _, c := range codes {
-		if c == consts.RoleSuperAdmin {
-			return []string{"*"}, nil
-		}
-	}
-
-	var perms []string
-	err = r.db.WithContext(ctx).
-		Table("sys_menu AS m").
-		Distinct("m.permission").
-		Joins("JOIN sys_role_menu AS rm ON rm.menu_id = m.id").
-		Joins("JOIN sys_user_role AS ur ON ur.role_id = rm.role_id").
-		Joins("JOIN sys_role AS r ON r.id = ur.role_id AND r.status = 1").
-		Where("ur.user_id = ? AND m.is_enabled = 1 AND m.permission IS NOT NULL AND m.permission <> ''", uid).
-		Pluck("m.permission", &perms).Error
-	if perms == nil {
-		perms = []string{}
-	}
-	return perms, err
+// SetStatus 启用 / 禁用账号。
+func (r *UserRepo) SetStatus(ctx context.Context, id uint64, status uint8) (int64, error) {
+	res := r.db.WithContext(ctx).Model(&entity.SysUser{}).Where("id = ?", id).Update("status", status)
+	return res.RowsAffected, res.Error
 }
 
-// BindRoleByCode 首次注册时绑定默认角色。
-func (r *UserRepo) BindRoleByCode(ctx context.Context, uid uint64, roleCode string) error {
+// SoftDelete 走 gorm.DeletedAt，保留审计轨迹。
+func (r *UserRepo) SoftDelete(ctx context.Context, id uint64) (int64, error) {
+	res := r.db.WithContext(ctx).Where("id = ?", id).Delete(&entity.SysUser{})
+	return res.RowsAffected, res.Error
+}
+
+// ReplaceRoles 全量覆盖用户角色，删除与写入在同一事务内完成。
+func (r *UserRepo) ReplaceRoles(ctx context.Context, uid uint64, roleIDs []uint64) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var role entity.SysRole
-		if err := tx.Where("role_code = ?", roleCode).First(&role).Error; err != nil {
+		if err := tx.Where("user_id = ?", uid).Delete(&entity.SysUserRole{}).Error; err != nil {
 			return err
 		}
-		rel := entity.SysUserRole{UserID: uid, RoleID: role.ID}
-		return tx.Where("user_id = ? AND role_id = ?", uid, role.ID).
-			FirstOrCreate(&rel).Error
+		if len(roleIDs) == 0 {
+			return nil
+		}
+		rows := make([]entity.SysUserRole, 0, len(roleIDs))
+		for _, rid := range roleIDs {
+			rows = append(rows, entity.SysUserRole{UserID: uid, RoleID: rid})
+		}
+		return tx.Create(&rows).Error
 	})
 }

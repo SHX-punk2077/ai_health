@@ -43,6 +43,18 @@ func (s *Store) Exists(ctx context.Context, key string) bool {
 	return err == nil && n > 0
 }
 
+// TryExists 区分“键不存在”与“Redis 故障”，让调用方在 Redis 降级时先放行核心业务。
+func (s *Store) TryExists(ctx context.Context, key string) (bool, error) {
+	if s.rdb == nil {
+		return false, errors.New("redis client is nil")
+	}
+	n, err := s.rdb.Exists(ctx, key).Result()
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
 func (s *Store) SAdd(ctx context.Context, key string, members ...string) error {
 	return s.rdb.SAdd(ctx, key, members).Err()
 }

@@ -16,6 +16,8 @@ func registerAuth(v1 *gin.RouterGroup, h *handler.AuthHandler, auth gin.HandlerF
 
 		authed := g.Group("", auth)
 		authed.POST("/logout", h.Logout)
-		authed.GET("/profile", h.Profile)
+		authed.GET("/me", h.Me)
+		authed.GET("/profile", h.Profile) // 兼容旧前端，等价 /auth/me
+		authed.PUT("/password", h.ChangePassword)
 	}
 }
