@@ -6,6 +6,8 @@
 | [database.md](./database.md) | 13 张表与 entity/migration 的对应关系 |
 | [architecture.md](./architecture.md) | 分层职责、依赖方向与关键决策 |
 | [ai.md](./ai.md) | 大模型接入：国内厂商预置、Prompt 设计、限流与密钥安全 |
+| [seed.md](./seed.md) | 开发演示数据：安全限制、dry-run、三个演示用户与复现方式 |
+| [health-privacy.md](./health-privacy.md) | 健康数据隐私：日志、越权、缓存、AI 与备份风险 |
 
 
 ## 环境

@@ -26,6 +26,13 @@ func (e *Error) WithDetail(format string, args ...any) *Error {
 	return &cp
 }
 
+// WithMsg 返回副本并替换给用户看的文案，错误码保持不变。
+func (e *Error) WithMsg(msg string) *Error {
+	cp := *e
+	cp.Msg = msg
+	return &cp
+}
+
 // Is 便于 errors.Is 判定。
 func (e *Error) Is(target error) bool {
 	var t *Error
@@ -65,6 +72,16 @@ var (
 	ErrLastSuperAdmin  = &Error{Code: 30012, Msg: "系统必须保留至少一个超级管理员"}
 
 	ErrMeasuredAtInvalid = &Error{Code: 40001, Msg: "测量时间不能晚于当前时间"}
+
+	ErrHealthProfileNotFound = &Error{Code: 40002, Msg: "健康档案不存在"}
+	ErrHealthProfileExists   = &Error{Code: 40003, Msg: "健康档案已存在"}
+	ErrHealthRecordNotFound  = &Error{Code: 40004, Msg: "健康记录不存在"}
+	ErrHealthDateInvalid     = &Error{Code: 40005, Msg: "日期格式不正确，应为 YYYY-MM-DD"}
+	ErrHealthMetricInvalid   = &Error{Code: 40006, Msg: "不支持的健康指标"}
+	ErrHealthGranularity     = &Error{Code: 40007, Msg: "聚合粒度仅支持 day、week、month"}
+	ErrHealthRangeInvalid    = &Error{Code: 40008, Msg: "时间范围不合法或超过 366 天"}
+	ErrHealthMeasuredInvalid = &Error{Code: 40009, Msg: "测量时间格式不正确"}
+	ErrHealthValueInvalid    = &Error{Code: 40010, Msg: "健康指标数值不合法"}
 
 	ErrAITimeout = &Error{Code: 60001, Msg: "AI 服务响应超时，请稍后重试"}
 )

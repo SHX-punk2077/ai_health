@@ -63,6 +63,21 @@ cd frontend && npm install && npm run dev
 > 在 MySQL 里执行 `INSERT INTO sys_user_role(user_id, role_id) VALUES(<你的id>, 1);` 绑定 `super_admin`，
 > 重新登录即可获得全部权限位。
 
+## 开发演示数据
+
+前端联调可生成三个确定性的演示用户（正常数据、数据不完整、无档案）：
+
+```powershell
+cd backend
+$env:AIH_SEED_MYSQL_DSN="root:<password>@tcp(127.0.0.1:3306)/ai_health_dev?charset=utf8mb4&parseTime=True&loc=UTC&timeout=5s"
+go run ./cmd/seed              # 默认 dry-run，不连接数据库
+go run ./cmd/seed -yes         # 确认目标库后写入
+```
+
+Seed 只接受 `_dev` / `_demo` 结尾的开发库，拒绝 `test` 与 `prod`；只操作
+`demo_user_a/b/c` 三个用户，事务内清理并重建其健康数据，不执行 TRUNCATE。
+演示密码 `Demo#2026` 仅用于本地开发。完整说明见 **[docs/seed.md](docs/seed.md)**。
+
 ## 数据模型层（13 张表）
 
 `backend/internal/model/entity` 已按 `backend/migrations/000001_init.up.sql` 完成 13 张表的 GORM 模型：
@@ -84,7 +99,8 @@ cd frontend && npm install && npm run dev
 - 注册建用户 + 绑默认角色在同一事务；AI 消息用会话行锁分配 `sequence_no`。
 
 完整字段映射、关联图、连接/事务说明和测试库用法见 **[docs/database.md](docs/database.md)**，
-SQL 审查发现的问题见 **[docs/database-review.md](docs/database-review.md)**。
+SQL 审查发现的问题见 **[docs/database-review.md](docs/database-review.md)**，
+健康数据的日志、越权、缓存、AI 与备份风险见 **[docs/health-privacy.md](docs/health-privacy.md)**。
 
 ```bash
 # 模型与 migration 的字段/索引/外键一致性（离线，不需要数据库）
@@ -135,8 +151,9 @@ AI_API_KEY=sk-xxxxxxxxxxxxxxxx
 
 ```bash
 # 后端：编译 + 静态检查 + 单测（go.mod 要求 go 1.27.4）
+# 测试会共用独立 ai_health_test 库，必须 -p 1 串行执行
 cd backend
-go build ./... && go vet ./... && go test ./...
+go build ./... && go vet ./... && go test ./... -count=1 -p 1
 
 # 前端：类型检查 + 生产构建
 cd frontend

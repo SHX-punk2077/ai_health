@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -18,20 +19,7 @@ import (
 
 // NewDB 初始化 GORM：连接池、UTC 时间基准、join 表注册，不在启动时执行 AutoMigrate。
 func NewDB(cfg *config.Config) (*gorm.DB, error) {
-	level := gormlogger.Warn
-	if cfg.Server.Mode == "debug" {
-		level = gormlogger.Info
-	}
-	slow := cfg.MySQL.SlowThreshold
-	if slow <= 0 {
-		slow = 200 * time.Millisecond
-	}
-	lg := gormlogger.New(log.New(os.Stdout, "\r\n", log.LstdFlags), gormlogger.Config{
-		SlowThreshold:             slow,
-		LogLevel:                  level,
-		IgnoreRecordNotFoundError: true,
-		Colorful:                  false,
-	})
+	lg := newDBLogger(cfg, os.Stdout)
 
 	dsn, err := normalizeDSN(cfg.MySQL.DSN)
 	if err != nil {
@@ -67,6 +55,26 @@ func NewDB(cfg *config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("ping mysql: %w", err)
 	}
 	return db, nil
+}
+
+// newDBLogger 构造 GORM 日志器。ParameterizedQueries 让 SQL 日志只保留占位符，
+// 避免 debug/慢查询日志把健康数值等业务参数展开到标准输出。
+func newDBLogger(cfg *config.Config, out io.Writer) gormlogger.Interface {
+	level := gormlogger.Warn
+	if cfg.Server.Mode == "debug" {
+		level = gormlogger.Info
+	}
+	slow := cfg.MySQL.SlowThreshold
+	if slow <= 0 {
+		slow = 200 * time.Millisecond
+	}
+	return gormlogger.New(log.New(out, "\r\n", log.LstdFlags), gormlogger.Config{
+		SlowThreshold:             slow,
+		LogLevel:                  level,
+		IgnoreRecordNotFoundError: true,
+		Colorful:                  false,
+		ParameterizedQueries:      true,
+	})
 }
 
 // normalizeDSN 把运行时 DSN 强制归一到 UTC 会话：

@@ -42,8 +42,8 @@ func TestRequiredRoutesRegistered(t *testing.T) {
 		got[rt.Method+" "+rt.Path] = true
 	}
 
-	// RBAC 阶段契约：认证、用户、角色、菜单，运动路由已统一为单数 /sport。
-	// 健康、AI 的剩余接口在阶段 4~6 补齐。
+	// 当前契约：认证、用户、角色、菜单、健康；运动路由统一为单数 /sport。
+	// AI 的剩余接口在后续阶段补齐。
 	want := []string{
 		"POST /api/v1/auth/register",
 		"POST /api/v1/auth/login",
@@ -79,10 +79,15 @@ func TestRequiredRoutesRegistered(t *testing.T) {
 		"DELETE /api/v1/menus/:id",
 
 		"GET /api/v1/health/profile",
+		"POST /api/v1/health/profile",
 		"PUT /api/v1/health/profile",
-		"POST /api/v1/health/records",
 		"GET /api/v1/health/records",
+		"POST /api/v1/health/records",
+		"GET /api/v1/health/records/:id",
+		"PUT /api/v1/health/records/:id",
 		"DELETE /api/v1/health/records/:id",
+		"GET /api/v1/health/summary",
+		"GET /api/v1/health/trends",
 		"GET /api/v1/sport/types",
 		"GET /api/v1/sport/infos",
 		"GET /api/v1/sport/diseases",

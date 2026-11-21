@@ -33,7 +33,7 @@ func New(cfg *config.Config, db *gorm.DB, store *cache.Store) *App {
 	userSvc := service.NewUserService(authSvc, userRepo, roleRepo, store)
 	roleSvc := service.NewRoleService(roleRepo, menuRepo, userRepo, store)
 	menuSvc := service.NewMenuService(menuRepo, roleRepo, userRepo, store)
-	healthSvc := service.NewHealthService(healthRepo, store)
+	healthSvc := service.NewHealthService(healthRepo)
 	sportSvc := service.NewSportService(sportRepo, store)
 	aiSvc := service.NewAIService(aiRepo, store, cfg)
 

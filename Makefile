@@ -3,7 +3,7 @@ SHELL := /bin/bash
 BACKEND := backend
 FRONTEND := frontend
 
-.PHONY: help api web tidy build fmt vet test swag migrate-up migrate-down migrate-create up down logs ps
+.PHONY: help api web tidy build fmt vet test seed swag migrate-up migrate-down migrate-create up down logs ps
 
 help:
 	@echo "api            启动后端 (go run ./cmd/api)"
@@ -11,6 +11,7 @@ help:
 	@echo "tidy           整理 Go 依赖"
 	@echo "build          编译后端到 backend/bin"
 	@echo "fmt / vet/test Go 格式化 / 静态检查 / 单测"
+	@echo "seed           开发演示数据（默认 dry-run；make seed ARGS=-yes 写入）"
 	@echo "swag           生成 Swagger 文档"
 	@echo "migrate-up     执行数据库迁移"
 	@echo "up / down      启动 / 停止 docker compose 全栈"
@@ -35,7 +36,10 @@ vet:
 	cd $(BACKEND) && go vet ./...
 
 test:
-	cd $(BACKEND) && go test ./...
+	cd $(BACKEND) && go test ./... -count=1 -p 1
+
+seed:
+	cd $(BACKEND) && go run ./cmd/seed $(ARGS)
 
 swag:
 	cd $(BACKEND) && swag init -g cmd/api/main.go -o docs
