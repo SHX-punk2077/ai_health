@@ -44,9 +44,13 @@ ai_health/                 # 仓库根
 # 1. 起数据库与缓存（含一次性迁移）
 docker compose -f deploy/docker-compose.yml up -d mysql redis migrate
 
-# 2. 后端：先配 JWT 密钥（>=32 字节）
-#    Windows PowerShell:  $env:AIH_JWT_SECRET="..."
-#    bash:                export AIH_JWT_SECRET="..."
+# 2. 后端：注入数据库 DSN 与 JWT 密钥（config.yaml 中默认为空，避免提交真实密码）
+#    Windows PowerShell:
+#      $env:AIH_MYSQL_DSN="root:your_password@tcp(127.0.0.1:3306)/ai_health?charset=utf8mb4&parseTime=True&loc=UTC"
+#      $env:AIH_JWT_SECRET="please-change-me-to-at-least-32-bytes"
+#    bash:
+#      export AIH_MYSQL_DSN='root:your_password@tcp(127.0.0.1:3306)/ai_health?charset=utf8mb4&parseTime=True&loc=UTC'
+#      export AIH_JWT_SECRET='please-change-me-to-at-least-32-bytes'
 cd backend && go mod tidy && go run ./cmd/api
 
 # 3. 前端（默认 5173，/api 代理到 8080）
@@ -58,6 +62,37 @@ cd frontend && npm install && npm run dev
 > 脚本不预置管理员账号。首次用 `POST /api/v1/auth/register` 注册后，
 > 在 MySQL 里执行 `INSERT INTO sys_user_role(user_id, role_id) VALUES(<你的id>, 1);` 绑定 `super_admin`，
 > 重新登录即可获得全部权限位。
+
+## 数据模型层（13 张表）
+
+`backend/internal/model/entity` 已按 `backend/migrations/000001_init.up.sql` 完成 13 张表的 GORM 模型：
+每表手写 `TableName()`、每列显式 `column/type`，索引名与外键名照抄 migration。
+
+| MySQL | Go |
+| --- | --- |
+| `BIGINT UNSIGNED` | `uint64` |
+| `INT UNSIGNED` / `SMALLINT UNSIGNED` / `TINYINT UNSIGNED` | `uint32` / `uint16` / `uint8` |
+| `TINYINT(1)` 真布尔 | `bool` |
+| `DECIMAL(p,s)` | `decimal.Decimal` / `*decimal.Decimal`（禁止 float） |
+| `DATETIME(3)` / `DATE` | `time.Time` / `*time.Time`（UTC） |
+| `TEXT` / `MEDIUMTEXT` / `VARCHAR` | `string` / 可空指针 |
+
+- 软删除只用于 `sys_user`、`ai_conversation`；其余表不加 `deleted_at`。
+- RBAC 四组多对多（User↔Role、Role↔Menu）通过 `SetupJoinTables` 注册 `sys_user_role` / `sys_role_menu`。
+- 健康档案与历史记录分开：`HealthProfile` 一对一，`HealthRecord` 一对多；新增记录不自动覆盖档案。
+- 注册建用户 + 绑默认角色在同一事务；AI 消息用会话行锁分配 `sequence_no`。
+
+完整字段映射、关联图、连接/事务说明和测试库用法见 **[docs/database.md](docs/database.md)**，
+SQL 审查发现的问题见 **[docs/database-review.md](docs/database-review.md)**。
+
+```bash
+# 模型与 migration 的字段/索引/外键一致性（离线，不需要数据库）
+cd backend && go test ./internal/model/entity -run TestGORMEntitySchemaMatchesMigration -count=1
+
+# 需要 MySQL 的集成测试：使用独立 _test 库，测试会重建 13 张表
+export AIH_TEST_MYSQL_DSN='root:your_password@tcp(127.0.0.1:3306)/ai_health_test?charset=utf8mb4&parseTime=True&loc=UTC'
+go test ./internal/model/entity -count=1
+```
 
 ## AI 模型接入（国内优先）
 
@@ -107,7 +142,8 @@ cd frontend
 npm install && npm run type-check && npm run build
 ```
 
-已完成验证（Go 1.27.4）：后端 `go build` / `go vet` / `go test` 全部通过且 gofmt 已格式化；前端 vue-tsc 类型检查与 vite build 均通过。
+已完成验证（Go 1.27.4）：后端 `go build` / `go vet` / `go test ./...` 全部通过且 gofmt 已格式化；
+模型层 13 张表的 schema 一致性测试与 MySQL 8 集成测试（独立 `ai_health_test` 库）通过；前端 vue-tsc 类型检查与 vite build 均通过。
 
 ## 约定
 

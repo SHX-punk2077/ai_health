@@ -12,6 +12,9 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: ai_health
+      # 与 api 的 AIH_MYSQL_DSN 使用同一业务账号，避免应用用 root 连接。
+      MYSQL_USER: aihealth
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-aihealth123}
       TZ: Asia/Shanghai
     ports:
       - "${MYSQL_PORT:-3306}:3306"
@@ -67,7 +70,8 @@ services:
         condition: service_healthy
     environment:
       AIH_SERVER_MODE: release
-      AIH_MYSQL_DSN: "aihealth:${MYSQL_PASSWORD:-aihealth123}@tcp(mysql:3306)/ai_health?charset=utf8mb4&parseTime=True&loc=Local&multiStatements=true"
+      # loc/time_zone 由 bootstrap.NewDB 强制归一到 UTC；应用不需要 multiStatements。
+      AIH_MYSQL_DSN: "aihealth:${MYSQL_PASSWORD:-aihealth123}@tcp(mysql:3306)/ai_health?charset=utf8mb4&parseTime=True&loc=UTC&timeout=5s"
       AIH_REDIS_ADDR: "redis:6379"
       AIH_JWT_SECRET: "${JWT_SECRET:-please-change-me-to-a-32-bytes-secret}"
       # 国内大模型优先：AI_PROVIDER=deepseek|qwen|glm|moonshot，空的 BASE_URL/MODEL 由服务端按 provider 预置

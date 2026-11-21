@@ -53,6 +53,21 @@ func (r *UserRepo) Create(ctx context.Context, u *entity.SysUser) error {
 	return r.db.WithContext(ctx).Create(u).Error
 }
 
+// CreateWithRole 注册事务：创建用户并绑定默认角色，任一步失败整体回滚，
+// 避免出现“用户已创建但没有角色”的中间状态。
+func (r *UserRepo) CreateWithRole(ctx context.Context, u *entity.SysUser, roleCode string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(u).Error; err != nil {
+			return err
+		}
+		var role entity.SysRole
+		if err := tx.Where("role_code = ? AND status = 1", roleCode).First(&role).Error; err != nil {
+			return err
+		}
+		return tx.Create(&entity.SysUserRole{UserID: u.ID, RoleID: role.ID}).Error
+	})
+}
+
 // Exists 检查唯一字段是否已被占用（NULL 值不参与唯一索引，故需排除空串）。
 func (r *UserRepo) Exists(ctx context.Context, column, value string) (bool, error) {
 	if value == "" {

@@ -6,7 +6,10 @@ server:
   shutdown_timeout: 10s
 
 mysql:
-  dsn: "root:root@tcp(127.0.0.1:3306)/ai_health?charset=utf8mb4&parseTime=True&loc=Local&timeout=5s"
+  # 必填，用 AIH_MYSQL_DSN 注入，禁止把真实账号密码提交到仓库。
+  # 示例：AIH_MYSQL_DSN='root:your_password@tcp(127.0.0.1:3306)/ai_health?charset=utf8mb4&parseTime=True&loc=UTC'
+  # bootstrap.NewDB 会强制补 parseTime=true、loc=UTC、time_zone='+00:00' 和 5s 拨号超时。
+  dsn: ""
   max_open: 25
   max_idle: 10
   slow_threshold: 200ms

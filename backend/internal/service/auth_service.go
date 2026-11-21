@@ -71,11 +71,9 @@ func (s *AuthService) Register(ctx context.Context, req *request.RegisterReq) (*
 		u.Phone = &req.Phone
 	}
 
-	if err := s.users.Create(ctx, u); err != nil {
-		return nil, errcode.ErrInternal.WithDetail("create user: %v", err)
-	}
-	if err := s.users.BindRoleByCode(ctx, u.ID, consts.RoleUser); err != nil {
-		return nil, errcode.ErrInternal.WithDetail("bind default role: %v", err)
+	// 创建用户与绑定默认角色在同一事务内完成，避免“无角色用户”的半成品数据。
+	if err := s.users.CreateWithRole(ctx, u, consts.RoleUser); err != nil {
+		return nil, errcode.ErrInternal.WithDetail("create user with default role: %v", err)
 	}
 	return s.buildUserInfo(ctx, u, false)
 }
@@ -99,7 +97,7 @@ func (s *AuthService) Login(ctx context.Context, req *request.LoginReq, ip strin
 	}
 
 	_ = s.store.Del(ctx, failKey)
-	_ = s.users.UpdateLastLogin(ctx, u.ID, time.Now())
+	_ = s.users.UpdateLastLogin(ctx, u.ID, time.Now().UTC())
 
 	token, err := s.issue(ctx, u.ID)
 	if err != nil {

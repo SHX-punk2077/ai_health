@@ -12,8 +12,8 @@ type MenuCreateReq struct {
 	Icon       string  `json:"icon" binding:"max=100"`
 	Permission string  `json:"permission" binding:"max=100"`
 	SortOrder  int     `json:"sortOrder"`
-	IsHidden   *uint8  `json:"isHidden" binding:"omitempty,oneof=0 1"`
-	IsEnabled  *uint8  `json:"isEnabled" binding:"omitempty,oneof=0 1"`
+	IsHidden   *bool   `json:"isHidden"`
+	IsEnabled  *bool   `json:"isEnabled"`
 }
 
 // MenuUpdateReq 部分更新。
@@ -24,6 +24,6 @@ type MenuUpdateReq struct {
 	Icon       *string `json:"icon" binding:"omitempty,max=100"`
 	Permission *string `json:"permission" binding:"omitempty,max=100"`
 	SortOrder  *int    `json:"sortOrder"`
-	IsHidden   *uint8  `json:"isHidden" binding:"omitempty,oneof=0 1"`
-	IsEnabled  *uint8  `json:"isEnabled" binding:"omitempty,oneof=0 1"`
+	IsHidden   *bool   `json:"isHidden"`
+	IsEnabled  *bool   `json:"isEnabled"`
 }

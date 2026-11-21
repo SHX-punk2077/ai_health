@@ -29,7 +29,7 @@ type MenuNode struct {
 	Icon       string      `json:"icon"`
 	Permission string      `json:"permission"`
 	SortOrder  int         `json:"sortOrder"`
-	IsHidden   uint8       `json:"isHidden"`
-	IsEnabled  uint8       `json:"isEnabled"`
+	IsHidden   bool        `json:"isHidden"`
+	IsEnabled  bool        `json:"isEnabled"`
 	Children   []*MenuNode `json:"children,omitempty"`
 }

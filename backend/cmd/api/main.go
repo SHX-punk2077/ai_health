@@ -42,6 +42,11 @@ func main() {
 	if err != nil {
 		lg.Fatal("connect mysql failed: " + err.Error())
 	}
+	defer func() {
+		if err := bootstrap.CloseDB(db); err != nil {
+			lg.Warn("close mysql: " + err.Error())
+		}
+	}()
 
 	rdb, err := bootstrap.NewRedis(cfg)
 	if err != nil {

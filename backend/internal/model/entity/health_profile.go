@@ -9,8 +9,8 @@ import (
 // HealthProfile 健康档案，一人一份（uk_health_profile_user_id）。
 // 所有指标可空，前端分步填写。
 type HealthProfile struct {
-	ID                   uint64           `gorm:"column:id;primaryKey;autoIncrement" json:"id,string"`
-	UserID               uint64           `gorm:"column:user_id;not null" json:"userId,string"`
+	ID                   uint64           `gorm:"column:id;type:bigint unsigned;primaryKey;autoIncrement" json:"id,string"`
+	UserID               uint64           `gorm:"column:user_id;type:bigint unsigned;not null;uniqueIndex:uk_health_profile_user_id" json:"userId,string"`
 	RealName             *string          `gorm:"column:real_name;type:varchar(50)" json:"realName"`
 	Age                  *uint8           `gorm:"column:age;type:tinyint unsigned" json:"age"`
 	BirthDate            *time.Time       `gorm:"column:birth_date;type:date" json:"birthDate"`
@@ -33,8 +33,13 @@ type HealthProfile struct {
 	DailyWaterMl         *uint32          `gorm:"column:daily_water_ml;type:int unsigned" json:"dailyWaterMl"`
 	MedicalHistory       *string          `gorm:"column:medical_history;type:text" json:"medicalHistory"`
 	AllergyHistory       *string          `gorm:"column:allergy_history;type:text" json:"allergyHistory"`
-	CreatedAt            time.Time        `gorm:"column:created_at;autoCreateTime:milli" json:"createdAt"`
-	UpdatedAt            time.Time        `gorm:"column:updated_at;autoUpdateTime:milli" json:"updatedAt"`
+	CreatedAt            time.Time        `gorm:"column:created_at;type:datetime(3);not null;autoCreateTime:milli" json:"createdAt"`
+	UpdatedAt            time.Time        `gorm:"column:updated_at;type:datetime(3);not null;autoUpdateTime:milli" json:"updatedAt"`
+
+	User *SysUser `gorm:"foreignKey:UserID;references:ID;constraint:fk_health_profile_user,OnDelete:CASCADE,OnUpdate:CASCADE" json:"-"`
+	// Records 该用户的全部健康记录。两者通过 user_id 关联（health_record.user_id
+	// 本身已有指向 sys_user 的外键），这里不再生成额外外键。
+	Records []HealthRecord `gorm:"foreignKey:UserID;references:UserID;constraint:-" json:"-"`
 }
 
 func (HealthProfile) TableName() string { return "health_profile" }

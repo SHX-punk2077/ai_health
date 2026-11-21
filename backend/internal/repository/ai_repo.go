@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"ai_health/internal/model/entity"
 )
@@ -42,7 +43,8 @@ func (r *AIRepo) ListConversations(ctx context.Context, uid uint64, offset, limi
 	return list, total, err
 }
 
-// NextSequence 取下一序号；并发下依赖 uk_ai_message_conversation_sequence 兜底。
+// NextSequence 只用于只读预估，不可作为并发写入的序号来源；
+// 写入请使用 AppendMessage，由会话行锁串行化 MAX+1。
 func (r *AIRepo) NextSequence(ctx context.Context, cid uint64) (uint32, error) {
 	var max uint32
 	err := r.db.WithContext(ctx).Model(&entity.AIMessage{}).
@@ -53,6 +55,26 @@ func (r *AIRepo) NextSequence(ctx context.Context, cid uint64) (uint32, error) {
 
 func (r *AIRepo) CreateMessage(ctx context.Context, m *entity.AIMessage) error {
 	return r.db.WithContext(ctx).Create(m).Error
+}
+
+// AppendMessage 在同一个事务内锁定会话行，再计算 MAX(sequence_no)+1 并插入。
+// 同一会话的并发写入因此串行化；uk_ai_message_conversation_sequence 仍是最终唯一性保障。
+func (r *AIRepo) AppendMessage(ctx context.Context, m *entity.AIMessage) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var conv entity.AIConversation
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Select("id").Where("id = ?", m.ConversationID).First(&conv).Error; err != nil {
+			return err
+		}
+		var max uint32
+		if err := tx.Model(&entity.AIMessage{}).
+			Where("conversation_id = ?", m.ConversationID).
+			Select("COALESCE(MAX(sequence_no), 0)").Scan(&max).Error; err != nil {
+			return err
+		}
+		m.SequenceNo = max + 1
+		return tx.Create(m).Error
+	})
 }
 
 // RecentMessages 取最近 n 条作为上下文，再反转成时间正序。

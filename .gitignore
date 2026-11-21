@@ -27,6 +27,7 @@ frontend/.vite/
 .DS_Store
 Thumbs.db
 *.log
+.tmp/
 
 # npm 本地缓存目录
 .npm-cache/
