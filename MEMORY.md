@@ -102,11 +102,61 @@ go test ./... -count=1 -p 1
 - 本机 Go 工具链若出现 Temp 写入失败，检查工具链目录的完整性级别；当前用 Medium IL 的
   Go 1.27.4 工具链构建，D:\go 原目录保留未动。
 - 已确认 AutoMigrate 实际调用为 0，只有注释；生产 schema 只由 migration 演进。
+- GORM 的 `default:1` 字段（sys_role.status、sys_menu.is_enabled、sys_user.status）在 Create 时会把零值回填成默认值。
+  创建禁用角色 / 禁用菜单 / 禁用用户必须在 Create **之前**记录意图，再在事务内显式 UPDATE 回 0/false；
+  不要在 Create 之后判断结构体字段，字段已被 GORM 改写。
 
 ## 6. 提交记录
 
 - f10b567 feat(model): 完成 13 张表的 GORM 模型与一致性测试
 - ac94d53 test(model): 补充 DECIMAL、软删与表集合契约测试
+- defb821 feat(auth): implement authentication and user access control
+
+## 7. RBAC（2026-11-21 已完成）
+
+路由（统一 /api/v1，全部走 JWT）：
+
+- /roles：GET role:list、GET /:id role:list、POST role:create、PUT /:id role:update、
+  DELETE /:id role:delete、GET /:id/menus role:list、PUT /:id/menus role:assign。
+- /menus：GET /tree menu:list、GET /my 仅登录、GET "" menu:list、GET /:id menu:list、
+  POST menu:create、PUT /:id menu:update、DELETE /:id menu:delete。
+- /users：GET /:id/roles user:list、PUT /:id/roles role:assign；其余管理接口见 docs/api.md。
+- 运动模块路径统一为 /api/v1/sport/*（原 /api/v1/sports/* 已移除，旧路径 404）。
+
+实现要点：
+
+- service/role_service.go：角色 CRUD、角色菜单授权；roleCode 正则 `^[a-z][a-z0-9_]{2,49}$`；
+  super_admin 不能重复创建 / 禁用 / 删除；user 内置角色不可删除；角色被活跃用户引用时拒绝删除，
+  只剩软删用户时先清理其 sys_user_role 历史绑定再删除角色。
+- service/menu_service.go：菜单 CRUD、树组装、父级与环校验；按钮必须有 permission；
+  禁用父级级联禁用后代（父级禁用时子级不能单独启用）；删除有子节点的菜单拒绝；
+  菜单变更后按 menu→role→user 失效权限缓存，级联禁用时覆盖根与全部后代关联的角色。
+- service/user_service.go：管理端用户 CRUD / 启停 / 重置密码 / 角色分配；资料接口忽略 roleIds/status；
+  只有 super_admin 能授予或撤销 super_admin；禁止删除/禁用自己；保留至少一个启用 super_admin。
+- middleware/auth.go：JWTAuth 写 CtxUID/CtxRoles/CtxPerms；RequirePerm 服务端校验，
+  super_admin 的 `*` 通配符放行；Redis 白名单不可用时当前降级为只验签名（已知风险）。
+- repository：RoleRepo 增加 Search/ExistsCode/ListByIDs/CountUsers/UserIDs/DeleteUnused/
+  CreateWithMenus/UpdateWithMenus；MenuRepo 增加 ExistsName/CountChildren/CountByIDs/RoleIDs/
+  SetEnabled/UpdateWithDescendants；UserRepo 增加 RoleIDs/CreateWithRoles/CodesByUsers 批量角色。
+- migrations/000003_rbac_permissions.up.sql：补 6 个按钮权限
+  role:create/update/delete、menu:create/update/delete（id 18–23），授权 super_admin 与 admin；
+  down 成对删除。未改表结构。
+
+测试：
+
+- backend/internal/service/rbac_service_test.go：角色列表/筛选/删除保护、角色创建与禁用、
+  菜单树/父级/环/级联禁用、我的菜单过滤按钮、授权缓存失效、禁用菜单不计权限、
+  用户角色分配保护、管理端用户 CRUD、事务回滚。
+- backend/internal/router/authz_test.go：真实 JWT + RBAC 中间件，覆盖 401/403、管理员权限、
+  super_admin `*`、禁用角色/菜单、/sport 新路径 200 与旧路径 404。
+- 全量 `go test ./... -count=1 -p 1` 全绿；gofmt 无输出、go vet 通过。
+
+## 8. 测试环境安全约定
+
+- Redis 自动化测试固定使用 **DB 15** 并 FlushDB。DB 15 必须专用于测试，
+  不得与其他程序 / 开发会话共用；生产与开发不得使用 DB 15。
+- 测试库必须使用 `ai_health_test`，DSN 的库名必须以 `_test` 结尾，测试会 TRUNCATE 13 张表。
+- 测试包共用同一 MySQL / Redis，必须 `-p 1` 串行执行。
 
 文档入口：
 

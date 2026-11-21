@@ -40,7 +40,12 @@ type ResetPasswordReq struct {
 	NewPassword string `json:"newPassword" binding:"required,min=8,max=64"`
 }
 
-// AssignRolesReq 角色分配。
+// AssignRolesReq 角色分配；传 [] 表示清空全部角色（超级管理员除外，见 service 校验）。
 type AssignRolesReq struct {
-	RoleIDs []uint64 `json:"roleIds" binding:"required"`
+	RoleIDs *[]uint64 `json:"roleIds" binding:"required"`
+}
+
+// UserStatusReq 启停账号。
+type UserStatusReq struct {
+	Status *uint8 `json:"status" binding:"required,oneof=0 1"`
 }

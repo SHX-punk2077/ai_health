@@ -84,8 +84,19 @@ func (r *MenuRepo) PermissionNames(ctx context.Context, uid uint64) ([]string, e
 	return perms, err
 }
 
+// Create 新建菜单；is_enabled 带 default:1，禁用节点需要在同一事务内显式回写。
 func (r *MenuRepo) Create(ctx context.Context, m *entity.SysMenu) error {
-	return r.db.WithContext(ctx).Create(m).Error
+	// is_enabled 带 default:1：GORM 会把零值字段回填成默认值，必须在 Create 前记录意图。
+	disabled := !m.IsEnabled
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(m).Error; err != nil {
+			return err
+		}
+		if disabled {
+			return tx.Model(&entity.SysMenu{}).Where("id = ?", m.ID).Update("is_enabled", false).Error
+		}
+		return nil
+	})
 }
 
 func (r *MenuRepo) Update(ctx context.Context, id uint64, updates map[string]any) (int64, error) {
@@ -100,4 +111,71 @@ func (r *MenuRepo) Update(ctx context.Context, id uint64, updates map[string]any
 func (r *MenuRepo) Delete(ctx context.Context, id uint64) (int64, error) {
 	res := r.db.WithContext(ctx).Where("id = ?", id).Delete(&entity.SysMenu{})
 	return res.RowsAffected, res.Error
+}
+
+// ExistsName 菜单标识是否已存在（uk_sys_menu_name），excludeID > 0 时忽略自身。
+func (r *MenuRepo) ExistsName(ctx context.Context, name string, excludeID uint64) (bool, error) {
+	q := r.db.WithContext(ctx).Model(&entity.SysMenu{}).Where("name = ?", name)
+	if excludeID > 0 {
+		q = q.Where("id <> ?", excludeID)
+	}
+	var n int64
+	err := q.Count(&n).Error
+	return n > 0, err
+}
+
+// CountChildren 直接子节点数量，删除前校验。
+func (r *MenuRepo) CountChildren(ctx context.Context, parentID uint64) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Model(&entity.SysMenu{}).Where("parent_id = ?", parentID).Count(&n).Error
+	return n, err
+}
+
+// CountByIDs 统计存在的菜单数量，与去重后的入参数量比对即可发现非法 ID。
+func (r *MenuRepo) CountByIDs(ctx context.Context, ids []uint64) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	var n int64
+	err := r.db.WithContext(ctx).Model(&entity.SysMenu{}).Where("id IN ?", ids).Count(&n).Error
+	return n, err
+}
+
+// RoleIDs 已授予该菜单的角色 ID，用于菜单变更后的权限缓存失效。
+func (r *MenuRepo) RoleIDs(ctx context.Context, menuID uint64) ([]uint64, error) {
+	ids := make([]uint64, 0, 4)
+	err := r.db.WithContext(ctx).Model(&entity.SysRoleMenu{}).
+		Where("menu_id = ?", menuID).Pluck("role_id", &ids).Error
+	return ids, err
+}
+
+// SetEnabled 批量启停菜单。
+func (r *MenuRepo) SetEnabled(ctx context.Context, ids []uint64, enabled bool) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res := r.db.WithContext(ctx).Model(&entity.SysMenu{}).Where("id IN ?", ids).Update("is_enabled", enabled)
+	return res.RowsAffected, res.Error
+}
+
+// UpdateWithDescendants 更新菜单并可选级联禁用后代，保证「父级禁用 → 子树失效」的原子性。
+func (r *MenuRepo) UpdateWithDescendants(ctx context.Context, id uint64, updates map[string]any, disableIDs []uint64) (int64, error) {
+	var affected int64
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if len(updates) > 0 {
+			res := tx.Model(&entity.SysMenu{}).Where("id = ?", id).Updates(updates)
+			if res.Error != nil {
+				return res.Error
+			}
+			affected = res.RowsAffected
+		}
+		if len(disableIDs) > 0 {
+			if err := tx.Model(&entity.SysMenu{}).Where("id IN ?", disableIDs).
+				Update("is_enabled", false).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return affected, err
 }

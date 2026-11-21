@@ -27,8 +27,8 @@ func TestRequiredRoutesRegistered(t *testing.T) {
 	h := handler.New(
 		handler.NewAuthHandler(nil),
 		handler.NewUserHandler(nil),
-		handler.NewRoleHandler(),
-		handler.NewMenuHandler(),
+		handler.NewRoleHandler(nil),
+		handler.NewMenuHandler(nil),
 		handler.NewHealthHandler(nil),
 		handler.NewSportHandler(nil),
 		handler.NewAIHandler(nil),
@@ -42,9 +42,8 @@ func TestRequiredRoutesRegistered(t *testing.T) {
 		got[rt.Method+" "+rt.Path] = true
 	}
 
-	// 阶段一契约：认证 + 我的资料 + 角色/菜单读接口。
-	// 健康、运动、AI 的写接口与 GET /menus（当前只有 /menus/tree）在阶段 3~6 补齐，
-	// 现状检查报告已列出这些缺口，避免本测试随实现进度反复失效。
+	// RBAC 阶段契约：认证、用户、角色、菜单，运动路由已统一为单数 /sport。
+	// 健康、AI 的剩余接口在阶段 4~6 补齐。
 	want := []string{
 		"POST /api/v1/auth/register",
 		"POST /api/v1/auth/login",
@@ -53,16 +52,42 @@ func TestRequiredRoutesRegistered(t *testing.T) {
 		"GET /api/v1/users/profile",
 		"PUT /api/v1/users/profile",
 		"GET /api/v1/users/roles",
+		"GET /api/v1/users",
+		"GET /api/v1/users/:id",
+		"POST /api/v1/users",
+		"PUT /api/v1/users/:id",
+		"DELETE /api/v1/users/:id",
+		"PATCH /api/v1/users/:id/status",
+		"PATCH /api/v1/users/:id/password",
+		"GET /api/v1/users/:id/roles",
+		"PUT /api/v1/users/:id/roles",
+
 		"GET /api/v1/roles",
+		"GET /api/v1/roles/:id",
+		"POST /api/v1/roles",
+		"PUT /api/v1/roles/:id",
+		"DELETE /api/v1/roles/:id",
+		"GET /api/v1/roles/:id/menus",
+		"PUT /api/v1/roles/:id/menus",
+
+		"GET /api/v1/menus",
 		"GET /api/v1/menus/tree",
+		"GET /api/v1/menus/:id",
+		"GET /api/v1/menus/my",
+		"POST /api/v1/menus",
+		"PUT /api/v1/menus/:id",
+		"DELETE /api/v1/menus/:id",
+
 		"GET /api/v1/health/profile",
 		"PUT /api/v1/health/profile",
 		"POST /api/v1/health/records",
 		"GET /api/v1/health/records",
 		"DELETE /api/v1/health/records/:id",
-		"GET /api/v1/sports/types",
-		"GET /api/v1/sports/infos",
-		"GET /api/v1/sports/diseases",
+		"GET /api/v1/sport/types",
+		"GET /api/v1/sport/infos",
+		"GET /api/v1/sport/diseases",
+		"POST /api/v1/sport/infos",
+		"PUT /api/v1/sport/infos/:id",
 		"POST /api/v1/ai/conversations",
 		"GET /api/v1/ai/conversations",
 		"GET /api/v1/ai/conversations/:id/messages",
@@ -85,8 +110,8 @@ func TestStaticSegmentWinsOverParam(t *testing.T) {
 	h := handler.New(
 		handler.NewAuthHandler(nil),
 		handler.NewUserHandler(nil),
-		handler.NewRoleHandler(),
-		handler.NewMenuHandler(),
+		handler.NewRoleHandler(nil),
+		handler.NewMenuHandler(nil),
 		handler.NewHealthHandler(nil),
 		handler.NewSportHandler(nil),
 		handler.NewAIHandler(nil),

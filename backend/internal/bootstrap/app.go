@@ -30,7 +30,9 @@ func New(cfg *config.Config, db *gorm.DB, store *cache.Store) *App {
 	aiRepo := repository.NewAIRepo(db)
 
 	authSvc := service.NewAuthService(userRepo, roleRepo, menuRepo, store, tokens)
-	userSvc := service.NewUserService(authSvc, userRepo, roleRepo)
+	userSvc := service.NewUserService(authSvc, userRepo, roleRepo, store)
+	roleSvc := service.NewRoleService(roleRepo, menuRepo, userRepo, store)
+	menuSvc := service.NewMenuService(menuRepo, roleRepo, userRepo, store)
 	healthSvc := service.NewHealthService(healthRepo, store)
 	sportSvc := service.NewSportService(sportRepo, store)
 	aiSvc := service.NewAIService(aiRepo, store, cfg)
@@ -38,8 +40,8 @@ func New(cfg *config.Config, db *gorm.DB, store *cache.Store) *App {
 	h := handler.New(
 		handler.NewAuthHandler(authSvc),
 		handler.NewUserHandler(userSvc),
-		handler.NewRoleHandler(),
-		handler.NewMenuHandler(),
+		handler.NewRoleHandler(roleSvc),
+		handler.NewMenuHandler(menuSvc),
 		handler.NewHealthHandler(healthSvc),
 		handler.NewSportHandler(sportSvc),
 		handler.NewAIHandler(aiSvc),

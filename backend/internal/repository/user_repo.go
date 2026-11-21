@@ -141,6 +141,38 @@ func (r *UserRepo) SoftDelete(ctx context.Context, id uint64) (int64, error) {
 	return res.RowsAffected, res.Error
 }
 
+// RoleIDs 用户当前绑定的角色 ID，分配前做差异判断。
+func (r *UserRepo) RoleIDs(ctx context.Context, uid uint64) ([]uint64, error) {
+	ids := make([]uint64, 0, 2)
+	err := r.db.WithContext(ctx).Model(&entity.SysUserRole{}).
+		Where("user_id = ?", uid).Pluck("role_id", &ids).Error
+	return ids, err
+}
+
+// CreateWithRoles 管理端建号：创建用户并写入角色，任一步失败整体回滚。
+func (r *UserRepo) CreateWithRoles(ctx context.Context, u *entity.SysUser, roleIDs []uint64) error {
+	// status 带 default:1：GORM 会把零值字段回填成默认值，必须在 Create 前记录意图。
+	disabled := u.Status == 0
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(u).Error; err != nil {
+			return err
+		}
+		if disabled {
+			if err := tx.Model(&entity.SysUser{}).Where("id = ?", u.ID).Update("status", 0).Error; err != nil {
+				return err
+			}
+		}
+		if len(roleIDs) == 0 {
+			return nil
+		}
+		rows := make([]entity.SysUserRole, 0, len(roleIDs))
+		for _, rid := range roleIDs {
+			rows = append(rows, entity.SysUserRole{UserID: u.ID, RoleID: rid})
+		}
+		return tx.Create(&rows).Error
+	})
+}
+
 // ReplaceRoles 全量覆盖用户角色，删除与写入在同一事务内完成。
 func (r *UserRepo) ReplaceRoles(ctx context.Context, uid uint64, roleIDs []uint64) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

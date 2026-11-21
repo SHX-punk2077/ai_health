@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 
 	"ai_health/internal/consts"
@@ -24,6 +26,16 @@ func bindQuery(c *gin.Context, dst any) bool {
 		return false
 	}
 	return true
+}
+
+// pathID 解析路径参数 :id，非法值直接写响应。
+func pathID(c *gin.Context) (uint64, bool) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || id == 0 {
+		response.Fail(c, errcode.ErrInvalidParam.WithDetail("非法 id: %s", c.Param("id")))
+		return 0, false
+	}
+	return id, true
 }
 
 // currentUID 从 JWT 中间件写入的上下文取用户 ID。

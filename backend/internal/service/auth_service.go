@@ -268,6 +268,11 @@ func (s *AuthService) issue(ctx context.Context, uid uint64) (*response.Token, e
 	}, nil
 }
 
+// RevokeAll 供用户管理（重置密码、删除、禁用）调用，立即踢出该用户全部会话。
+func (s *AuthService) RevokeAll(ctx context.Context, uid uint64) error {
+	return s.revokeAll(ctx, uid)
+}
+
 // revokeAll 删除该用户全部 access / refresh 白名单与权限缓存。
 func (s *AuthService) revokeAll(ctx context.Context, uid uint64) error {
 	setKey := fmt.Sprintf(consts.KeyUserJTIs, uid)

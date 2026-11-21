@@ -60,7 +60,7 @@ const (
 	prefixRole   = "/roles"
 	prefixMenu   = "/menus"
 	prefixHealth = "/health"
-	prefixSport  = "/sports"
+	prefixSport  = "/sport"
 	prefixAI     = "/ai"
 )
 
