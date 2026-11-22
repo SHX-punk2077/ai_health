@@ -1,0 +1,7 @@
+{
+  "identity": {"uuid": "0b1de6c2-be93-48d9-a31e-fa2eae0717a4"},
+  "tasks": {
+    "20261122-0427-0c8b-第六阶段-step-1-知识库数据模型": {"category": "建设", "created": "2026-11-22 04:27:22", "creator": "0b1de6c2-be93-48d9-a31e-fa2eae0717a4", "creator_name": "Nova", "finished": null, "owner": "0b1de6c2-be93-48d9-a31e-fa2eae0717a4", "owner_name": "Nova", "started": "2026-11-22 04:27:22", "status": "doing", "tags": ["知识库", "数据模型", "迁移"], "title": "第六阶段 Step 1 知识库数据模型", "updated": "2026-11-22 04:27:22", "worklog": "worklog/202611/22-0427-0c8b-第六阶段-step-1-知识库数据模型.md"}
+  },
+  "version": "20261022000000"
+}
